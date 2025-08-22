@@ -1,7 +1,11 @@
-use std::error::Error;
-use axum::{response::Html, routing::get, Router};
-use tower_http::services::ServeDir;
+mod routes;
+
+use axum::response::IntoResponse;
 use axum::serve::Serve;
+use axum::{http, response::Html, routing::get, routing::post, Router};
+use std::error::Error;
+use tower_http::classify::ServerErrorsFailureClass::StatusCode;
+use tower_http::services::ServeDir;
 
 // This struct encapsulates our application-related logic.
 pub struct Application {
@@ -17,15 +21,20 @@ impl Application {
         // Also, remove the `hello` route.
         // We don't need it at this point!
         let router = Router::new()
-        .nest_service("/", ServeDir::new("assets"))
-        .route("/hello", get(hello_handler));
+            .nest_service("/", ServeDir::new("assets"))
+            .route("/signup", post(routes::signup))
+            .route("/login", post(routes::login))
+            .route("/logout", post(routes::logout))
+            .route("/verify-2fa", post(routes::verify_2fa))
+            .route("/verify-token", post(routes::verify_token))
+            .route("/hello", get(hello_handler));
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
         let server = axum::serve(listener, router);
 
         // Create a new Application instance and return it
-        Ok(Application{
+        Ok(Application {
             server,
             address: address.to_string(),
         })
@@ -40,4 +49,3 @@ impl Application {
 async fn hello_handler() -> Html<&'static str> {
     Html("<h1>Hello, World! Done Task 1 For Rusty Bootcamp!</h1>")
 }
-
