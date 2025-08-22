@@ -1,10 +1,8 @@
 mod routes;
 
-use axum::response::IntoResponse;
 use axum::serve::Serve;
-use axum::{http, response::Html, routing::get, routing::post, Router};
+use axum::{response::Html, routing::get, routing::post, Router};
 use std::error::Error;
-use tower_http::classify::ServerErrorsFailureClass::StatusCode;
 use tower_http::services::ServeDir;
 
 // This struct encapsulates our application-related logic.
