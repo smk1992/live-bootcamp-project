@@ -1,9 +1,34 @@
-mod routes;
+extern crate core;
 
-use axum::serve::Serve;
-use axum::{response::Html, routing::get, routing::post, Router};
-use std::error::Error;
+mod domain;
+mod routes;
+pub use routes::SignUpResponse;
+mod services;
+pub use crate::services::hashmap_user_store::HashMapUserStore;
+
+use axum::{
+    response::Html,
+    routing::{get, post},
+    serve::Serve,
+    Router,
+};
+use std::{error::Error, sync::Arc};
+use tokio::sync::RwLock;
+
 use tower_http::services::ServeDir;
+
+pub type UserStoreType = Arc<RwLock<HashMapUserStore>>;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub user_store: UserStoreType,
+}
+
+impl AppState {
+    pub fn new(user_store: UserStoreType) -> Self {
+        Self { user_store }
+    }
+}
 
 // This struct encapsulates our application-related logic.
 pub struct Application {
@@ -14,7 +39,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         // Move the Router definition from `main.rs` to here.
         // Also, remove the `hello` route.
         // We don't need it at this point!
@@ -25,7 +50,8 @@ impl Application {
             .route("/logout", post(routes::logout))
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token))
-            .route("/hello", get(hello_handler));
+            .route("/hello", get(hello_handler))
+            .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();

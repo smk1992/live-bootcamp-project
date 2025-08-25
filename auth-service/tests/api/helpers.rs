@@ -1,5 +1,6 @@
+use auth_service::{AppState, Application, HashMapUserStore, UserStoreType};
+use tokio::sync::RwLock;
 use uuid::Uuid;
-use auth_service::Application;
 
 pub struct TestApp {
     pub address: String,
@@ -8,7 +9,9 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn new() -> Self {
-        let app = Application::build("127.0.0.1:0")
+        let user_store = UserStoreType::new(RwLock::new(HashMapUserStore::new()));
+        let app_state = AppState::new(user_store);
+        let app = Application::build(app_state, "127.0.0.1:0")
             .await
             .expect("Failed to build app");
 
@@ -38,7 +41,9 @@ impl TestApp {
 
     // TODO: Implement helper functions for all other routes (signup, login, logout, verify-2fa, and verify-token)
     pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
-    where Body: serde::Serialize {
+    where
+        Body: serde::Serialize,
+    {
         self.http_client
             .post(self.url("/signup"))
             .json(body)
