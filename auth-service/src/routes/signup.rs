@@ -1,13 +1,13 @@
+use crate::domain::errors::AuthAPIError;
 use crate::domain::user::User;
-use crate::services::hashmap_user_store::UserStoreError;
+use crate::domain::data_stores::{UserStore, UserStoreError};
 use crate::AppState;
 use axum::{extract::State, http, response::IntoResponse, Json};
 use axum_macros::debug_handler;
 use serde::{Deserialize, Serialize};
 
-#[debug_handler]
-pub async fn signup(
-    State(state): State<AppState>,
+pub async fn signup<T: UserStore + Clone + Send + Sync>(
+    State(state): State<AppState<T>>,
     Json(params): Json<SignUpParams>,
 ) -> impl IntoResponse {
     let user: User = params.into();
@@ -15,18 +15,13 @@ pub async fn signup(
     let mut user_store = state.user_store.write().await;
 
     match user_store.add_user(user).await {
-        Err(UserStoreError::UserAlreadyExists) => (
-            http::StatusCode::UNPROCESSABLE_ENTITY,
-            Json(SignUpResponse::new("User Already Exists")),
-        ),
-        Err(_) => (
-            http::StatusCode::BAD_REQUEST,
-            Json(SignUpResponse::new("Something went wrong")),
-        ),
+        Err(UserStoreError::UserAlreadyExists) => AuthAPIError::UserAlreadyExists.into_response(),
+        Err(UserStoreError::InvalidCredentials) => AuthAPIError::InvalidCredentials.into_response(),
+        Err(_) => AuthAPIError::UnexpectedError.into_response(),
         Ok(_) => (
             http::StatusCode::CREATED,
             Json(SignUpResponse::new("User created successfully!")),
-        ),
+        ).into_response(),
     }
 }
 

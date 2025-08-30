@@ -1,10 +1,8 @@
-use tokio::sync::{RwLock};
-use auth_service::{AppState, Application, UserStoreType, HashMapUserStore};
+use auth_service::{AppState, Application, HashMapUserStore};
 
 #[tokio::main]
 async fn main() {
-    let user_store = UserStoreType::new(RwLock::new(HashMapUserStore::new()));
-    let app_state = AppState::new(user_store);
+    let app_state = AppState::new(HashMapUserStore::new());
 
     let app = Application::build(app_state, "0.0.0.0:3000")
         .await
