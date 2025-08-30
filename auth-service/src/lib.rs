@@ -17,12 +17,15 @@ use tower_http::services::ServeDir;
 use crate::domain::data_stores::UserStore;
 use crate::domain::errors::AuthAPIError;
 
+pub trait AppUserStore: UserStore + Clone + Send + Sync {}
+impl<T: UserStore + Clone + Send + Sync> AppUserStore for T {}
+
 #[derive(Clone)]
-pub struct AppState<T: UserStore + Clone + Send + Sync> {
+pub struct AppState<T: AppUserStore> {
     pub user_store: Arc<RwLock<T>>,
 }
 
-impl <T: UserStore + Clone + Send + Sync>AppState<T> {
+impl <T: AppUserStore>AppState<T> {
     pub fn new(user_store: T) -> Self {
         Self { user_store: Arc::new(RwLock::new(user_store))  }
     }
@@ -37,7 +40,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build<T: UserStore + Clone + Send + Sync + 'static>(app_state: AppState<T>, address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build<T: AppUserStore + 'static>(app_state: AppState<T>, address: &str) -> Result<Self, Box<dyn Error>> {
         // Move the Router definition from `main.rs` to here.
         // Also, remove the `hello` route.
         // We don't need it at this point!
