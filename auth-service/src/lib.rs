@@ -10,7 +10,7 @@ pub use crate::services::hashmap_user_store::HashMapUserStore;
 
 use crate::utils::auth::GenerateTokenError;
 
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{
     response::Html,
@@ -21,7 +21,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::{error::Error, sync::Arc};
 use tokio::sync::RwLock;
-
+use tower_http::cors::CorsLayer;
 use crate::domain::data_stores::UserStore;
 use crate::domain::errors::AuthAPIError;
 use tower_http::services::ServeDir;
@@ -55,9 +55,18 @@ impl Application {
         app_state: AppState<T>,
         address: &str,
     ) -> Result<Self, Box<dyn Error>> {
-        // Move the Router definition from `main.rs` to here.
-        // Also, remove the `hello` route.
-        // We don't need it at this point!
+        let allowed_origins = [
+            "http://localhost:8000".parse()?,
+            "http://138.197.170.32:8000".parse()?,
+        ];
+
+        let cors = CorsLayer::new()
+            // Allow GET and POST requests
+            .allow_methods([Method::GET, Method::POST])
+            // Allow cookies to be included in requests
+            .allow_credentials(true)
+            .allow_origin(allowed_origins);
+
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(routes::signup))
@@ -65,7 +74,6 @@ impl Application {
             .route("/logout", post(routes::logout))
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token))
-            .route("/hello", get(hello_handler))
             .with_state(app_state);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
@@ -95,12 +103,14 @@ impl IntoResponse for AuthAPIError {
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing token"),
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token"),
             AuthAPIError::IncorrectCredentials => {
                 (StatusCode::UNAUTHORIZED, "Incorrect credentials")
             }
             AuthAPIError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
-            }
+            },
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string(),
@@ -128,8 +138,4 @@ impl IntoResponse for GenerateTokenError {
 
         (status, body).into_response()
     }
-}
-
-async fn hello_handler() -> Html<&'static str> {
-    Html("<h1>Hello, World! Done Task 1 For Rusty Bootcamp!</h1>")
 }
