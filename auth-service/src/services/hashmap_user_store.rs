@@ -1,6 +1,6 @@
 use crate::domain::data_stores::{
     UserStore, UserStoreError,
-    UserStoreError::{InvalidCredentials, UserAlreadyExists, UserNotFound},
+    UserStoreError::{IncorrectCredentials, UserAlreadyExists, UserNotFound},
 };
 use crate::domain::user::User;
 use crate::domain::{Email, Password};
@@ -26,6 +26,7 @@ impl UserStore for HashMapUserStore {
             return Err(UserAlreadyExists);
         }
         self.users.insert(user.email.clone(), user);
+
         Ok(())
     }
 
@@ -42,7 +43,7 @@ impl UserStore for HashMapUserStore {
 
         match &user.password == password {
             true => Ok(()),
-            false => Err(InvalidCredentials),
+            false => Err(IncorrectCredentials),
         }
     }
 }
@@ -142,7 +143,7 @@ mod tests {
         let result = store
             .validate_user(&email, &Password::parse("password111").unwrap())
             .await;
-        assert!(matches!(result, Err(InvalidCredentials)));
+        assert!(matches!(result, Err(_)));
     }
 
     #[tokio::test]

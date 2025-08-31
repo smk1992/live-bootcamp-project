@@ -4,18 +4,27 @@ mod domain;
 mod routes;
 pub use routes::SignUpResponse;
 mod services;
+pub mod utils;
+
 pub use crate::services::hashmap_user_store::HashMapUserStore;
 
-use axum::{response::Html, routing::{get, post}, serve::Serve, Json, Router};
-use std::{error::Error, sync::Arc};
+use crate::utils::auth::GenerateTokenError;
+
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum::{
+    response::Html,
+    routing::{get, post},
+    serve::Serve,
+    Json, Router,
+};
 use serde::{Deserialize, Serialize};
+use std::{error::Error, sync::Arc};
 use tokio::sync::RwLock;
 
-use tower_http::services::ServeDir;
 use crate::domain::data_stores::UserStore;
 use crate::domain::errors::AuthAPIError;
+use tower_http::services::ServeDir;
 
 pub trait AppUserStore: UserStore + Clone + Send + Sync {}
 impl<T: UserStore + Clone + Send + Sync> AppUserStore for T {}
@@ -25,9 +34,11 @@ pub struct AppState<T: AppUserStore> {
     pub user_store: Arc<RwLock<T>>,
 }
 
-impl <T: AppUserStore>AppState<T> {
+impl<T: AppUserStore> AppState<T> {
     pub fn new(user_store: T) -> Self {
-        Self { user_store: Arc::new(RwLock::new(user_store))  }
+        Self {
+            user_store: Arc::new(RwLock::new(user_store)),
+        }
     }
 }
 
@@ -40,7 +51,10 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build<T: AppUserStore + 'static>(app_state: AppState<T>, address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build<T: AppUserStore + 'static>(
+        app_state: AppState<T>,
+        address: &str,
+    ) -> Result<Self, Box<dyn Error>> {
         // Move the Router definition from `main.rs` to here.
         // Also, remove the `hello` route.
         // We don't need it at this point!
@@ -81,12 +95,35 @@ impl IntoResponse for AuthAPIError {
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
+            AuthAPIError::IncorrectCredentials => {
+                (StatusCode::UNAUTHORIZED, "Incorrect credentials")
+            }
             AuthAPIError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string(),
+        });
+
+        (status, body).into_response()
+    }
+}
+
+impl IntoResponse for GenerateTokenError {
+    fn into_response(self) -> Response {
+        let (status, error_message) = match self {
+            GenerateTokenError::TokenError(err) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+            }
+            GenerateTokenError::UnexpectedError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Unexpected error".to_string(),
+            ),
+        };
+
+        let body = Json(ErrorResponse {
+            error: error_message,
         });
 
         (status, body).into_response()

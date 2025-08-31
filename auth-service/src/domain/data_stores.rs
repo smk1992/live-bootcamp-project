@@ -12,6 +12,6 @@ pub trait UserStore {
 pub enum UserStoreError {
     UserAlreadyExists,
     UserNotFound,
-    InvalidCredentials,
+    IncorrectCredentials,
     UnexpectedError,
 }

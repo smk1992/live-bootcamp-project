@@ -4,7 +4,6 @@ use crate::domain::user::User;
 use crate::domain::{Email, Password};
 use crate::{AppState, AppUserStore};
 use axum::{extract::State, http, response::IntoResponse, Json};
-use axum_macros::debug_handler;
 use serde::{Deserialize, Serialize};
 
 pub async fn signup<T: AppUserStore>(
