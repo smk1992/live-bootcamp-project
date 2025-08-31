@@ -9,6 +9,13 @@ cargo build
 cd ..
 ```
 
+For docker
+## Run servers locally (Docker)
+```bash
+./docker.sh
+```
+
+
 ## Run servers locally (Manually)
 #### App service
 ```bash
