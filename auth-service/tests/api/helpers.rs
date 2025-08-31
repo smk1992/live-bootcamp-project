@@ -45,10 +45,7 @@ impl TestApp {
     }
 
     // TODO: Implement helper functions for all other routes (signup, login, logout, verify-2fa, and verify-token)
-    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
+    pub async fn post_signup<Body: serde::Serialize>(&self, body: &Body) -> reqwest::Response {
         self.http_client
             .post(self.url("/signup"))
             .json(body)
@@ -82,9 +79,10 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_verify_token(&self) -> reqwest::Response {
+    pub async fn post_verify_token<Body: serde::Serialize>(&self, body: &Body) -> reqwest::Response {
         self.http_client
             .post(self.url("/verify-token"))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")
