@@ -1,8 +1,5 @@
-use std::fmt::Debug;
-use axum::extract::Request;
 use axum::http;
 use axum::response::IntoResponse;
-use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use crate::domain::errors::AuthAPIError;
 use crate::utils::auth::validate_token;

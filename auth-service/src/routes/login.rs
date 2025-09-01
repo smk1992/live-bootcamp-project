@@ -39,7 +39,7 @@ pub async fn login<T: AppUserStore>(
     let auth_cookie = generate_auth_cookie(&email).map_err(|err| {
         match err {
             GenerateTokenError::UnexpectedError => AuthAPIError::UnexpectedError,
-            GenerateTokenError::TokenError(err) => {
+            GenerateTokenError::TokenError(_) => {
                 // TODO: generate log entry for token error
                 AuthAPIError::UnexpectedError
             }

@@ -10,21 +10,19 @@ pub use crate::services::hashmap_user_store::HashMapUserStore;
 
 use crate::utils::auth::GenerateTokenError;
 
+use crate::domain::data_stores::UserStore;
+use crate::domain::errors::AuthAPIError;
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{
-    response::Html,
-    routing::{get, post},
+    routing::{post},
     serve::Serve,
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::{error::Error, sync::Arc};
 use tokio::sync::RwLock;
-use tower_http::cors::CorsLayer;
-use crate::domain::data_stores::UserStore;
-use crate::domain::errors::AuthAPIError;
-use tower_http::services::ServeDir;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
 pub trait AppUserStore: UserStore + Clone + Send + Sync {}
 impl<T: UserStore + Clone + Send + Sync> AppUserStore for T {}
@@ -74,7 +72,8 @@ impl Application {
             .route("/logout", post(routes::logout))
             .route("/verify-2fa", post(routes::verify_2fa))
             .route("/verify-token", post(routes::verify_token))
-            .with_state(app_state);
+            .with_state(app_state)
+            .layer(cors);
 
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -110,7 +109,7 @@ impl IntoResponse for AuthAPIError {
             }
             AuthAPIError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
-            },
+            }
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string(),
