@@ -7,10 +7,11 @@ mod services;
 pub mod utils;
 
 pub use crate::services::hashmap_user_store::HashMapUserStore;
+pub use crate::services::hashset_banned_token_store::HashSetBannedTokenStore;
 
 use crate::utils::auth::GenerateTokenError;
 
-use crate::domain::data_stores::UserStore;
+use crate::domain::data_stores::{BannedTokenStore, UserStore};
 use crate::domain::errors::AuthAPIError;
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
@@ -27,15 +28,19 @@ use tower_http::{cors::CorsLayer, services::ServeDir};
 pub trait AppUserStore: UserStore + Clone + Send + Sync {}
 impl<T: UserStore + Clone + Send + Sync> AppUserStore for T {}
 
+pub type BannedStoreType = Arc<RwLock<dyn BannedTokenStore + Send + Sync>>;
+
 #[derive(Clone)]
 pub struct AppState<T: AppUserStore> {
     pub user_store: Arc<RwLock<T>>,
+    pub banned_token_store: BannedStoreType
 }
 
 impl<T: AppUserStore> AppState<T> {
-    pub fn new(user_store: T) -> Self {
+    pub fn new(user_store: T, banned_token_store: BannedStoreType) -> Self {
         Self {
             user_store: Arc::new(RwLock::new(user_store)),
+            banned_token_store,
         }
     }
 }
