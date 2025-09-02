@@ -38,12 +38,13 @@ impl UserStore for HashMapUserStore {
         &self,
         email: &Email,
         password: &Password,
-    ) -> Result<(), UserStoreError> {
+    ) -> Result<User, UserStoreError> {
         let user = self.get_user(email).await?;
 
-        match &user.password == password {
-            true => Ok(()),
-            false => Err(IncorrectCredentials),
+        if &user.password == password {
+            Ok(user)
+        } else {
+            Err(IncorrectCredentials)
         }
     }
 }
@@ -92,11 +93,7 @@ mod tests {
         let password = Password::parse("password").unwrap();
 
         store
-            .add_user(User::new(
-                email.clone(),
-                password.clone(),
-                true,
-            ))
+            .add_user(User::new(email.clone(), password.clone(), true))
             .await
             .expect("insert user failed");
 
@@ -122,7 +119,6 @@ mod tests {
 
         let email = Email::parse("user@example.com").unwrap();
         let password = Password::parse("password").unwrap();
-
 
         let result = store.validate_user(&email, &password).await;
         assert!(matches!(result, Err(UserNotFound)));
@@ -153,12 +149,14 @@ mod tests {
         let email = Email::parse("user@example.com").unwrap();
         let password = Password::parse("password").unwrap();
 
+        let user = User::new(email.clone(), password.clone(), true);
+
         store
-            .add_user(User::new(email.clone(), password.clone(), true))
+            .add_user(user.clone())
             .await
             .expect("Failed to insert user");
 
-        let result = store.validate_user(&email, &password).await;
-        assert!(matches!(result, Ok(())));
+        let result = store.validate_user(&email, &password).await.unwrap();
+        assert_eq!(result, user);
     }
 }

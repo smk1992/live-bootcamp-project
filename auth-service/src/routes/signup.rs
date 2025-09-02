@@ -2,12 +2,12 @@ use crate::domain::data_stores::UserStoreError;
 use crate::domain::errors::AuthAPIError;
 use crate::domain::user::User;
 use crate::domain::{Email, Password};
-use crate::{AppState, AppUserStore};
+use crate::{AppState};
 use axum::{extract::State, http, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
-pub async fn signup<T: AppUserStore>(
-    State(state): State<AppState<T>>,
+pub async fn signup(
+    State(state): State<AppState>,
     Json(params): Json<SignUpParams>,
 ) -> impl IntoResponse {
     let user: User;

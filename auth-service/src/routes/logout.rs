@@ -1,14 +1,14 @@
 use crate::domain::errors::AuthAPIError;
 use crate::utils::auth::validate_token;
 use crate::utils::constants::JWT_COOKIE_NAME;
-use crate::{AppState, AppUserStore};
+use crate::{AppState};
 use axum::extract::State;
 use axum::http;
 use axum::response::IntoResponse;
 use axum_extra::extract::CookieJar;
 
-pub async fn logout<T: AppUserStore>(
-    State(app_state): State<AppState<T>>,
+pub async fn logout(
+    State(app_state): State<AppState>,
     jar: CookieJar,
 ) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
     let Some(cookie) = jar.get(JWT_COOKIE_NAME) else {

@@ -1,6 +1,8 @@
 pub mod data_stores;
 pub mod errors;
 pub mod user;
+mod email_client;
+pub use email_client::EmailClient;
 
 #[derive(Clone, PartialEq, Hash, Eq, Debug)]
 pub struct Email(String);

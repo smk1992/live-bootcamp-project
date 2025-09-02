@@ -1,46 +1,55 @@
 extern crate core;
 
-mod domain;
 mod routes;
 pub use routes::SignUpResponse;
+pub use routes::TwoFactorAuthResponse;
 mod services;
 pub mod utils;
+pub mod domain;
 
 pub use crate::services::hashmap_user_store::HashMapUserStore;
 pub use crate::services::hashset_banned_token_store::HashSetBannedTokenStore;
+pub use crate::services::hashmap_2fa_token_store::HashMap2FaTokenStore;
+pub use crate::services::mock_email_client::MockEmailClient;
 
 use crate::utils::auth::GenerateTokenError;
 
-use crate::domain::data_stores::{BannedTokenStore, UserStore};
+use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore, UserStore};
 use crate::domain::errors::AuthAPIError;
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::{
-    routing::{post},
-    serve::Serve,
-    Json, Router,
-};
+use axum::{routing::post, serve::Serve, Json, Router};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, sync::Arc};
 use tokio::sync::RwLock;
 use tower_http::{cors::CorsLayer, services::ServeDir};
+use crate::domain::EmailClient;
 
-pub trait AppUserStore: UserStore + Clone + Send + Sync {}
-impl<T: UserStore + Clone + Send + Sync> AppUserStore for T {}
-
+pub type UserStoreType = Arc<RwLock<dyn UserStore + Send + Sync>>;
 pub type BannedStoreType = Arc<RwLock<dyn BannedTokenStore + Send + Sync>>;
+pub type TwoFACodeStoreType = Arc<RwLock<dyn TwoFACodeStore + Send + Sync>>;
+pub type EmailClientType = Arc<dyn EmailClient + Send + Sync>;
 
 #[derive(Clone)]
-pub struct AppState<T: AppUserStore> {
-    pub user_store: Arc<RwLock<T>>,
-    pub banned_token_store: BannedStoreType
+pub struct AppState {
+    pub user_store: UserStoreType,
+    pub banned_token_store: BannedStoreType,
+    pub two_fa_code_store: TwoFACodeStoreType,
+    pub email_client: EmailClientType
 }
 
-impl<T: AppUserStore> AppState<T> {
-    pub fn new(user_store: T, banned_token_store: BannedStoreType) -> Self {
+impl AppState {
+    pub fn new(
+        user_store: UserStoreType,
+        banned_token_store: BannedStoreType,
+        two_fa_code_store: TwoFACodeStoreType,
+        email_client: EmailClientType
+    ) -> Self {
         Self {
-            user_store: Arc::new(RwLock::new(user_store)),
+            user_store,
             banned_token_store,
+            two_fa_code_store,
+            email_client
         }
     }
 }
@@ -54,8 +63,8 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build<T: AppUserStore + 'static>(
-        app_state: AppState<T>,
+    pub async fn build(
+        app_state: AppState,
         address: &str,
     ) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = [

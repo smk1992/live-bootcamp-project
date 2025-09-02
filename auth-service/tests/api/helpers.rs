@@ -1,20 +1,33 @@
-use std::sync::Arc;
-use reqwest::cookie::Jar;
-use tokio::sync::RwLock;
-use auth_service::{AppState, Application, HashMapUserStore, HashSetBannedTokenStore};
-use uuid::Uuid;
 use auth_service::utils::constants::test;
+use auth_service::{AppState, Application, BannedStoreType, HashMap2FaTokenStore, HashMapUserStore, HashSetBannedTokenStore, MockEmailClient, TwoFACodeStoreType};
+use reqwest::cookie::Jar;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
+    pub banned_token_store: BannedStoreType,
+    pub two_fa_code_store: TwoFACodeStoreType,
     pub http_client: reqwest::Client,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let banned_user_store = Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
-        let app_state = AppState::new(HashMapUserStore::new(), banned_user_store);
+        let banned_token_store = Arc::new(RwLock::new(HashSetBannedTokenStore::default()));
+        let user_store = Arc::new(RwLock::new(HashMapUserStore::new()));
+        let two_fa_code_store = Arc::new(RwLock::new(HashMap2FaTokenStore::new()));
+        let mock_email_client = Arc::new(MockEmailClient);
+
+
+        let app_state = AppState::new(
+            user_store,
+            banned_token_store.clone(),
+            two_fa_code_store.clone(),
+            mock_email_client
+        );
+
         let app = Application::build(app_state, test::APP_ADDRESS)
             .await
             .expect("Failed to build app");
@@ -28,13 +41,18 @@ impl TestApp {
 
         let cookie_jar = Arc::new(Jar::default());
         // Create a Reqwest http client instance
-        let http_client = reqwest::Client::builder().cookie_provider(cookie_jar.clone()).build().unwrap();
+        let http_client = reqwest::Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
 
         // Create new `TestApp` instance and return it
         TestApp {
             cookie_jar,
             http_client,
             address,
+            banned_token_store,
+            two_fa_code_store,
         }
     }
 
@@ -73,15 +91,19 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_verify_2fa(&self) -> reqwest::Response {
+    pub async fn post_verify_2fa<Body: serde::Serialize>(&self, body: &Body) -> reqwest::Response {
         self.http_client
             .post(self.url("/verify-2fa"))
+            .json(body)
             .send()
             .await
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_verify_token<Body: serde::Serialize>(&self, body: &Body) -> reqwest::Response {
+    pub async fn post_verify_token<Body: serde::Serialize>(
+        &self,
+        body: &Body,
+    ) -> reqwest::Response {
         self.http_client
             .post(self.url("/verify-token"))
             .json(body)
